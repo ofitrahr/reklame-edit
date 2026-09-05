@@ -297,6 +297,10 @@ function nearRoad(lat,lon){
 }
 function oRecalc(p){const n=nearRoad(p.lat,p.lon);p.d=n.d;p.jln=n.nama;return n;}
 function oMoved(p){return p.lat!==p.lat0||p.lon!==p.lon0;}
+// Nama ruas hanya bermakna kalau titiknya memang dekat. Layer jalan 2024 adalah
+// inventarisasi resmi dan tidak memuat semua jalan, sehingga ruas "terdekat"
+// sejauh ratusan meter belum tentu jalan tempat titik itu berdiri.
+function oJln(p){return p.d<=AMBANG?(p.jln||''):'';}
 
 function oLoad(){
   OP=ORPHAN.map(x=>Object.assign({},x,{lat0:x.lat,lon0:x.lon}));
@@ -351,7 +355,7 @@ function oDraw(){
     m.bindPopup(`<div class="pp"><b>${p.kode||p.uid}</b><br>
       ${p.jenis} &mdash; ${p.tipe}<br>${p.kel}, ${p.kec}<br>
       Jarak ke jalan: <b style="color:${p.d<=AMBANG?'#c8e64f':'#ff5c5c'}">${p.d.toFixed(0)} m</b><br>
-      Terdekat: ${p.jln||'-'}
+      Ruas jalan: ${oJln(p)||'<span style="color:#8b968c">&mdash; belum dekat jalan</span>'}
       <div class="cw"><span class="cv">${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}</span></div>
       <div class="cw"><button class="cb" onclick="copyCoord(${p.lat},${p.lon},this)">📋 Salin</button>
       <a class="ge" target="_blank" rel="noopener"
@@ -375,7 +379,7 @@ function oRender(){
     c.innerHTML=`<span class="d">${p.d.toFixed(0)} m</span>
       <div class="t">${p.kode||p.uid}${tag}</div>
       <div class="m">${p.jenis} &mdash; ${p.tipe}<br>${p.kel}, ${p.kec}<br>
-      terdekat: ${p.jln||'-'}</div>`;
+      ruas: ${oJln(p)||'&mdash;'}</div>`;
     c.onclick=()=>{oSel=p.uid;map.setView([p.lat,p.lon],18);
       if(omk[p.uid])omk[p.uid].openPopup();
       oGuideDraw(p.lat,p.lon);oRender();};
@@ -402,7 +406,7 @@ document.getElementById('bOCsv').onclick=()=>{
     'LON_BARU','LAT_BARU','JARAK_AWAL_M','JARAK_BARU_M','JALAN_TERDEKAT','DIGESER'].join(',');
   const q=v=>'"'+String(v==null?'':v).split('"').join('""')+'"';
   const r=OP.map(p=>[p.uid,p.kode,p.jenis,p.tipe,q(p.kel),q(p.kec),
-    p.lon0,p.lat0,p.lon,p.lat,p.d0,p.d.toFixed(1),q(p.jln),
+    p.lon0,p.lat0,p.lon,p.lat,p.d0,p.d.toFixed(1),q(oJln(p)),
     oMoved(p)?'YA':'TIDAK'].join(','));
   dl('Titik_Jauh_Digeser.csv',[h,...r].join(String.fromCharCode(10)),'text/csv');
 };
@@ -415,7 +419,7 @@ document.getElementById('bOGeo').onclick=()=>dl('Titik_Jauh_Digeser.geojson',
       properties:{UID:p.uid,ID_TITIK:p.kode,JENIS:p.jenis,TIPE:p.tipe,
         KELURAHAN:p.kel,KECAMATAN:p.kec,LON_LAMA:p.lon0,LAT_LAMA:p.lat0,
         JARAK_AWAL_M:p.d0,JARAK_BARU_M:+p.d.toFixed(1),
-        JALAN_TERDEKAT:p.jln||'',DIGESER:oMoved(p)?'YA':'TIDAK'}}))},null,1),
+        JALAN_TERDEKAT:oJln(p),DIGESER:oMoved(p)?'YA':'TIDAK'}}))},null,1),
   'application/geo+json');
 
 document.getElementById('bOReset').onclick=()=>{

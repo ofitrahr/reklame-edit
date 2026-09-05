@@ -82,6 +82,13 @@ dihitung ulang setiap kali digeser. Belah ketupat berubah hijau begitu jaraknya
 <= 50 m. Ekspor GeoJSON/CSV memuat koordinat lama dan baru plus penanda `DIGESER`,
 untuk di-join kembali ke GPKG lewat kolom `UID`.
 
+Selama titik masih >50 m, **nama ruas sengaja dikosongkan** (`—` di kartu dan popup,
+`JALAN_TERDEKAT` kosong di ekspor) dan baru terisi setelah titiknya digeser sampai
+<= 50 m. Alasannya ada di catatan di bawah: ruas "terdekat" sejauh ratusan meter
+belum tentu jalan tempat titik itu benar-benar berdiri, jadi menampilkannya justru
+menyesatkan. Perilaku ini sejalan dengan GPKG, yang juga mengosongkan `NAMA_JALAN`
+dan `ROW` untuk ke-98 titik tersebut.
+
 Jaringan jalan yang ditampilkan hanya ruas dalam radius 600 m dari ke-98 titik
 (66 ruas, disederhanakan ~0,5 m). Jarak dihitung dengan proyeksi lokal
 equirectangular; selisihnya terhadap perhitungan UTM di QGIS sekitar 1 m,

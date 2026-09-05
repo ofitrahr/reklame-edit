@@ -27,6 +27,7 @@ color:var(--ink);font-size:11.5px;cursor:pointer;font-family:Arial;text-align:le
 .btn:hover{border-color:var(--dim)}
 .btn.on{background:rgba(200,230,79,.15);border-color:var(--lime);color:var(--lime)}
 .btn.ruler.on{background:rgba(180,140,232,.15);border-color:var(--vio);color:var(--vio)}
+.btn.patok.on{background:rgba(233,237,232,.12);border-color:#e9ede8;color:#e9ede8}
 .btn.danger:hover{border-color:var(--rust);color:var(--rust)}
 .grp{display:flex;gap:5px}.grp .btn{flex:1;text-align:center}
 select.jsel{width:100%;background:var(--panel2);color:var(--ink);border:1px solid var(--line);
@@ -83,6 +84,7 @@ border-right:none;border-bottom:1px solid var(--line)}#map{height:54%}}
 </select>
 <button class="btn" id="bAdd">➕ Mode Tambah Titik</button>
 <button class="btn ruler" id="bRuler">📏 Penggaris (multipoint)</button>
+<button class="btn patok on" id="bPatok">🏁 Patok Jarak 100 m</button>
 <div class="grp"><button class="btn" id="bUndo">↶ Undo</button>
 <button class="btn danger" id="bReset">⟲ Reset</button></div>
 <div class="grp"><button class="btn" id="bGeo">⬇ GeoJSON</button>
@@ -96,6 +98,7 @@ border-right:none;border-bottom:1px solid var(--line)}#map{height:54%}}
 <div class="lrow"><span class="dot" style="background:#e0a15f"></span> Titik tambahan manual</div>
 <div class="lrow"><span class="ln" style="background:#5fb3c9"></span> Ruas sudah ada titik</div>
 <div class="lrow"><span class="ln" style="background:#e0703b"></span> Ruas pendek (&lt;1 km, belum ada titik)</div>
+<div class="lrow"><span class="ln" style="background:#e9ede8"></span> Patok jarak per 100 m (dari awal ruas)</div>
 </div>
 <div class="tabs"><div class="tab act" data-t="pts">TITIK (<span id="cT">0</span>)</div>
 <div class="tab" data-t="short">RUAS PENDEK (<span id="cS">0</span>)</div></div>
@@ -163,6 +166,65 @@ function drawRuler(){
       TOTAL ${tot.toFixed(1)} m</div>`})}).addTo(rLayer);}
 }
 
+// ===== PATOK JARAK (STA) PER RUAS =====
+const STEP=100, PATOK=[];
+function bearing(a,b){const t=Math.PI/180, dLon=(b[1]-a[1])*t;
+  const y=Math.sin(dLon)*Math.cos(b[0]*t);
+  const x=Math.cos(a[0]*t)*Math.sin(b[0]*t)-Math.sin(a[0]*t)*Math.cos(b[0]*t)*Math.cos(dLon);
+  return (Math.atan2(y,x)*180/Math.PI+360)%360;}
+
+LINES.forEach(l=>{
+  const c=l.coords; if(c.length<2)return;
+  PATOK.push({m:0,lat:c[0][0],lon:c[0][1],brg:bearing(c[0],c[1]),idx:l.idx});
+  let acc=0,next=STEP;
+  for(let i=1;i<c.length;i++){
+    const d=haversine(c[i-1],c[i]); if(d<=0)continue;
+    const br=bearing(c[i-1],c[i]);
+    while(next<=acc+d){
+      const f=(next-acc)/d;
+      PATOK.push({m:next,idx:l.idx,brg:br,
+        lat:c[i-1][0]+(c[i][0]-c[i-1][0])*f,
+        lon:c[i-1][1]+(c[i][1]-c[i-1][1])*f});
+      next+=STEP;}
+    acc+=d;}
+});
+
+const patokLayer=L.layerGroup().addTo(map);
+let patokOn=true;
+function patokStep(z){return z>=17?100:z>=15?500:z>=13?1000:0;}
+function drawPatok(){
+  patokLayer.clearLayers();
+  const step=patokStep(map.getZoom()), bp=document.getElementById('bPatok');
+  bp.classList.toggle('on',patokOn);
+  bp.textContent = !patokOn ? '🏁 Patok Jarak (mati)'
+    : step ? `🏁 Patok \u2014 tiap ${step} m` : '🏁 Patok \u2014 perbesar peta';
+  if(!patokOn||!step)return;
+  const bd=map.getBounds().pad(.15);
+  PATOK.forEach(p=>{
+    if(p.m%step)return;
+    if(!bd.contains([p.lat,p.lon]))return;
+    const km=p.m%1000===0, maj=p.m%500===0;
+    const col=km?'#ffffff':maj?'#e9ede8':'#aab5ab';
+    const tk=km?15:maj?11:7;
+    const rad=p.brg*Math.PI/180, ux=Math.cos(rad), uy=Math.sin(rad), R=km?11:maj?10:9;
+    const dx=(ux*R).toFixed(1), dy=(uy*R).toFixed(1);
+    const px=(ux*50-50).toFixed(1), py=(uy*50-50).toFixed(1);
+    const lab=`<div style="font-family:var(--mono);font-weight:700;white-space:nowrap;
+      font-size:${km?9.5:maj?9:8}px;color:${col};opacity:${km?1:maj?.9:.72};
+      text-shadow:0 1px 2px #000,0 0 4px #000">${p.m} m</div>`;
+    L.marker([p.lat,p.lon],{interactive:false,zIndexOffset:-800,
+      icon:L.divIcon({className:'',iconSize:[0,0],html:
+        `<div style="position:absolute;left:0;top:0;width:${tk}px;height:2px;background:${col};
+          margin:-1px 0 0 ${(-tk/2).toFixed(1)}px;transform:rotate(${(p.brg+90).toFixed(1)}deg);
+          box-shadow:0 0 3px rgba(0,0,0,.9)"></div>
+        <div style="position:absolute;left:0;top:0;white-space:nowrap;
+          transform:translate(${dx}px,${dy}px) translate(${px}%,${py}%)">${lab}</div>`
+      })}).addTo(patokLayer);
+  });
+}
+map.on('zoomend moveend',drawPatok);
+document.getElementById('bPatok').onclick=()=>{patokOn=!patokOn;drawPatok();};
+
 // ===== TITIK =====
 const mk={};
 function snap(){hist.push(JSON.stringify(P)); if(hist.length>60)hist.shift();}
@@ -218,7 +280,7 @@ function render(){
   document.getElementById('nS').textContent=shortIdx.length;
   document.getElementById('cT').textContent=P.length;
   document.getElementById('cS').textContent=shortIdx.length;
-  document.getElementById('ft').textContent=`${P.length} titik · ${hist.length} undo · auto-save aktif`;
+  document.getElementById('ft').textContent=`${P.length} titik · ${PATOK.length} patok · ${hist.length} undo · auto-save aktif`;
 }
 
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
@@ -301,5 +363,6 @@ document.getElementById('fIn').onchange=e=>{
 
 render();
 map.fitBounds(L.latLngBounds(P.map(p=>[p.lat,p.lon])).pad(.15));
+drawPatok();
 if(restored)setTimeout(()=>{document.getElementById('saveInd').textContent='progres dipulihkan ✓';},400);
 </script></body></html>

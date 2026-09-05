@@ -13,6 +13,8 @@ WebGIS interaktif untuk plotting dan penyuntingan titik reklame koridor di Kota 
 - **Koordinat siap salin** — klik koordinat di kartu, atau tombol 📋 Salin di popup,
   lalu tempel ke kotak pencarian Google Earth / Maps; tersedia juga tautan langsung
 - **Penanda ruas pendek** — ruas <1 km yang belum punya titik ditandai garis oranye putus-putus
+- **Titik jauh dari jalan** — 98 titik reklame yang >50 m dari ruas terdekat, ditampilkan
+  sebagai belah ketupat merah agar bisa digeser ke jalan; lihat bagian di bawah
 - **Auto-save** — progres otomatis tersimpan di browser (localStorage)
 - **Simpan/Muat file proyek** — untuk backup atau pindah perangkat
 - **Export** — GeoJSON dan CSV, langsung bisa dibuka di QGIS
@@ -67,3 +69,26 @@ tambah titik, penggaris, maupun drag marker.
 
 > Catatan: panjang hasil hitung haversine berbeda ~0,5% dari kolom `len` bawaan data
 > (mis. 426 m vs 424 m) karena `len` dihitung di CRS terproyeksi.
+
+## Titik Jauh dari Jalan
+
+Tab **TITIK JAUH** berisi 98 titik dari `Titik Reklame Terbaru _ VER 20260905 13.30.gpkg`
+yang jaraknya lebih dari 50 m dari ruas terdekat pada `Jalan Kota Batam 2024.gpkg`,
+sehingga kolom `NAMA_JALAN` dan `ROW`-nya kosong setelah overlay.
+
+Cara pakai: klik kartu untuk melompat ke titiknya, lalu geser belah ketupat merah ke
+ruas jalan. Garis putus-putus menunjuk ke titik terdekat pada jalan dan jaraknya
+dihitung ulang setiap kali digeser. Belah ketupat berubah hijau begitu jaraknya
+<= 50 m. Ekspor GeoJSON/CSV memuat koordinat lama dan baru plus penanda `DIGESER`,
+untuk di-join kembali ke GPKG lewat kolom `UID`.
+
+Jaringan jalan yang ditampilkan hanya ruas dalam radius 600 m dari ke-98 titik
+(66 ruas, disederhanakan ~0,5 m). Jarak dihitung dengan proyeksi lokal
+equirectangular; selisihnya terhadap perhitungan UTM di QGIS sekitar 1 m,
+dan selalu sedikit lebih besar, jadi aman terhadap ambang 50 m.
+
+> **Penting:** `Jalan Kota Batam 2024.gpkg` adalah inventarisasi jalan resmi
+> (1.184 ruas, 1.233 km) dan tidak memuat seluruh jalan yang ada di lapangan.
+> Sebagian titik berdiri di jalan nyata yang memang tidak ada di layer itu —
+> menggesernya ke ruas terdekat justru akan memindahkannya dari lokasi
+> sebenarnya. Periksa citra satelit dulu sebelum menggeser.

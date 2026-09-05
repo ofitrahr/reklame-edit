@@ -55,6 +55,17 @@ background:var(--panel2);cursor:pointer;font-size:10.5px}
 .leaflet-popup-content-wrapper{background:var(--panel2);color:var(--ink);border-radius:5px}
 .leaflet-popup-tip{background:var(--panel2)}
 .pp{font-size:11px;line-height:1.6}.pp b{color:var(--ink)}
+.pp .cw{display:flex;align-items:center;gap:7px;margin-top:4px;flex-wrap:wrap}
+.pp .cv{font-family:var(--mono);font-size:10.5px;color:var(--sky);
+  user-select:all;-webkit-user-select:all;cursor:text}
+.pp .cb{background:var(--panel);border:1px solid var(--line);color:var(--ink);
+  font:11px Arial;padding:2px 7px;border-radius:4px;cursor:pointer}
+.pp .cb:hover{border-color:var(--lime);color:var(--lime)}
+.pp .ge{font-size:10.5px;color:var(--sky);text-decoration:none}
+.pp .ge:hover{text-decoration:underline}
+.card .co{font-family:var(--mono);font-size:9.5px;color:var(--sky);
+  margin-top:3px;cursor:copy;display:inline-block}
+.card .co:hover{color:var(--lime)}
 footer{padding:6px 11px;font-family:var(--mono);font-size:9px;color:var(--dim);border-top:1px solid var(--line)}
 ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
 @media(max-width:760px){#body{flex-direction:column}#side{width:100%;height:46%;
@@ -230,6 +241,20 @@ const mk={};
 function snap(){hist.push(JSON.stringify(P)); if(hist.length>60)hist.shift();}
 function color(p){return p.manual?'#e0a15f':'#c8e64f';}
 
+// salin koordinat 'lat, lon' -- format yang diterima kotak pencarian Google Earth/Maps
+function copyCoord(lat,lon,el){
+  const txt=lat.toFixed(6)+', '+lon.toFixed(6), old=el.textContent;
+  const ok=()=>{el.textContent='✓ tersalin';setTimeout(()=>el.textContent=old,1200);};
+  const fallback=()=>{const ta=document.createElement('textarea');ta.value=txt;
+    ta.style.cssText='position:fixed;top:0;left:0;opacity:0';document.body.appendChild(ta);
+    ta.focus();ta.select();
+    try{document.execCommand('copy');ok();}catch(e){prompt('Salin koordinat:',txt);}
+    document.body.removeChild(ta);};
+  if(navigator.clipboard&&window.isSecureContext)
+    navigator.clipboard.writeText(txt).then(ok).catch(fallback);
+  else fallback();
+}
+
 function draw(){
   Object.values(mk).forEach(m=>map.removeLayer(m));
   for(const k in mk)delete mk[k];
@@ -242,7 +267,10 @@ function draw(){
       <b>${p.jenis||'Koridor'}</b> — ${p.tipe||'Sisi Jalan'}<br>
       ${p.jalan}<br>${p.kel}, ${p.kec}<br>
       ${p.lbr?`Lebar ${p.lbr} m · offset ${p.off} m (${p.sisi})<br>`:''}
-      <span style="font-family:monospace;font-size:10px">${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}</span></div>`);
+      <div class="cw"><span class="cv">${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}</span></div>
+      <div class="cw"><button class="cb" onclick="copyCoord(${p.lat},${p.lon},this)">📋 Salin</button>
+      <a class="ge" target="_blank" rel="noopener"
+      href="https://earth.google.com/web/@${p.lat},${p.lon},0a,600d,35y,0h,0t,0r">Google Earth ↗</a></div></div>`);
     m.on('dragstart',()=>snap());
     m.on('dragend',e=>{const ll=e.target.getLatLng();
       p.lat=+ll.lat.toFixed(6);p.lon=+ll.lng.toFixed(6);save();render();});
@@ -260,9 +288,11 @@ function render(){
     const bg=p.manual?'rgba(224,161,95,.2);color:#e0a15f':'rgba(200,230,79,.16);color:#c8e64f';
     c.innerHTML=`<span class="del" data-id="${p.id}">✕</span>
       <div class="t">#${p.id}<span class="badge" style="background:${bg}">${p.tipe||'Sisi Jalan'}</span></div>
-      <div class="m">${p.jalan}<br>${p.kel}, ${p.kec}</div>`;
+      <div class="m">${p.jalan}<br>${p.kel}, ${p.kec}</div>
+      <div class="co" title="Klik untuk salin koordinat">${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}</div>`;
     c.onclick=e=>{
       if(e.target.classList.contains('del')){snap();P=P.filter(x=>x.id!=p.id);save();render();return;}
+      if(e.target.classList.contains('co')){copyCoord(p.lat,p.lon,e.target);return;}
       sel=p.id;map.setView([p.lat,p.lon],18);mk[p.id].openPopup();render();};
     le.appendChild(c);});
 
